@@ -199,7 +199,7 @@ export default function P2P() {
                             </a>{' '}
                             or Google Drive — paste your link below
                           </p>
-                          <div className="flex gap-2">
+                          <div className="flex flex-col sm:flex-row gap-2">
                             <input
                               type="text"
                               value={responseText[req.id] || ''}
