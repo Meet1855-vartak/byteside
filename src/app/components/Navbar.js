@@ -125,6 +125,9 @@ export default function Navbar() {
           <Link href="/contact" className="text-muted hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>
             Contact
           </Link>
+          <Link href="/faq" className="text-muted hover:text-foreground transition-colors">
+            FAQ
+          </Link>
           {profile?.is_admin && (
             <Link href="/admin" className="text-accent font-semibold" onClick={() => setMenuOpen(false)}>
               Admin
