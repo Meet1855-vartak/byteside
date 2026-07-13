@@ -61,6 +61,9 @@ export default function Navbar() {
             <Link href="/contact" className="text-muted hover:text-foreground transition-colors">
               Contact
             </Link>
+            <Link href="/faq" className="text-muted hover:text-foreground transition-colors">
+              FAQ
+            </Link>
             {profile?.is_admin && (
               <Link href="/admin" className="text-accent hover:opacity-80 transition-opacity font-semibold">
                 Admin
@@ -125,7 +128,7 @@ export default function Navbar() {
           <Link href="/contact" className="text-muted hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>
             Contact
           </Link>
-          <Link href="/faq" className="text-muted hover:text-foreground transition-colors">
+          <Link href="/faq" className="text-muted hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>
             FAQ
           </Link>
           {profile?.is_admin && (
