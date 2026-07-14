@@ -37,7 +37,7 @@ function VerifyForm() {
     <div className="w-full max-w-sm">
       <h1 className="font-serif text-3xl mb-2 text-center">Check your email</h1>
       <p className="text-sm text-muted text-center mb-6">
-        Enter the 6-digit code we sent to {email || 'your email'}
+          Enter the code we sent to {email || 'your email'}
       </p>
       <form onSubmit={handleVerify} className="bg-surface border border-border rounded-xl p-6 space-y-4">
         <input
@@ -45,9 +45,9 @@ function VerifyForm() {
           value={code}
           onChange={(e) => setCode(e.target.value)}
           required
-          maxLength={6}
-          placeholder="123456"
-          className="w-full text-center text-2xl tracking-[0.5em] bg-background border border-border rounded-lg px-3 py-3 focus:outline-none focus:border-accent"
+          maxLength={10}
+          placeholder="Enter code"
+          className="w-full text-center text-2xl tracking-[0.3em] bg-background border border-border rounded-lg px-3 py-3 focus:outline-none focus:border-accent"
         />
         <button
           type="submit"
