@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useTheme } from 'next-themes'
 import Link from 'next/link'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, Feather } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
 export default function Navbar() {
@@ -55,15 +55,21 @@ export default function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-border bg-surface/90 backdrop-blur-md">
-      {/* Changed max-w-2xl to max-w-7xl for a standard wide navbar layout */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center gap-4">
         
-        {/* Logo */}
-        <Link href="/" className="text-xl font-bold text-accent shrink-0" onClick={() => setMenuOpen(false)}>
-          Byteside
+        {/* Brand Logo & Name */}
+        <Link 
+          href="/" 
+          className="text-xl font-bold text-accent shrink-0 flex items-center gap-2.5 group" 
+          onClick={() => setMenuOpen(false)}
+        >
+          <div className="p-1.5 rounded-xl bg-accent/10 border border-accent/20 group-hover:bg-accent/20 transition-colors">
+            <Feather className="w-5 h-5 text-accent" />
+          </div>
+          <span className="tracking-tight">Byteside</span>
         </Link>
 
-        {/* Desktop menu */}
+        {/* Desktop Menu */}
         <div className="hidden sm:flex items-center gap-6 lg:gap-8">
           <div className="flex items-center gap-5 lg:gap-6 text-sm font-medium">
             <Link href="/" className="text-muted hover:text-foreground transition-colors">
@@ -130,7 +136,7 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* Mobile hamburger button */}
+        {/* Mobile Hamburger Button */}
         <button
           className="sm:hidden text-foreground relative shrink-0"
           onClick={() => setMenuOpen(!menuOpen)}
@@ -145,7 +151,7 @@ export default function Navbar() {
         </button>
       </div>
 
-      {/* Mobile dropdown menu */}
+      {/* Mobile Dropdown Menu */}
       {menuOpen && (
         <div className="sm:hidden border-t border-border bg-surface px-6 py-5 flex flex-col gap-4 text-sm font-medium">
           <Link href="/" className="text-muted hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>
