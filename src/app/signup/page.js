@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Turnstile } from '@marsidev/react-turnstile'
 import { supabase } from '@/lib/supabase'
 
 export default function Signup() {
@@ -9,14 +10,27 @@ export default function Signup() {
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
   const router = useRouter()
 
   async function handleSignup(e) {
     e.preventDefault()
+
+    if (!captchaToken) {
+      setMessage('❌ Please complete the verification check.')
+      return
+    }
+
     setLoading(true)
     setMessage('')
 
-    const { data, error } = await supabase.auth.signUp({ email, password })
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        captchaToken,
+      },
+    })
 
     setLoading(false)
 
@@ -49,11 +63,22 @@ export default function Signup() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              minLength={6}
+              minLength={8}
               className="w-full mt-1 bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
             />
-            <p className="text-xs text-muted mt-1">Minimum 6 characters</p>
+            <p className="text-xs text-muted mt-1">
+              At least 8 characters, with uppercase, lowercase, and a number
+            </p>
           </div>
+
+          <div className="flex justify-center">
+            <Turnstile
+              siteKey="0x4AAAAAAD7NDjYozxqr_27A"
+              onSuccess={(token) => setCaptchaToken(token)}
+              onExpire={() => setCaptchaToken('')}
+            />
+          </div>
+
           <button
             type="submit"
             disabled={loading}
