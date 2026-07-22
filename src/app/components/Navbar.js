@@ -54,15 +54,18 @@ export default function Navbar() {
   if (!mounted) return null
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-border bg-surface/90 backdrop-blur-md">
-      <div className="max-w-2xl mx-auto px-6 py-4 flex justify-between items-center">
-        <Link href="/" className="text-xl font-bold text-accent" onClick={() => setMenuOpen(false)}>
+    <nav className="sticky top-0 z-50 w-full border-b border-border bg-surface/90 backdrop-blur-md">
+      {/* Changed max-w-2xl to max-w-7xl for a standard wide navbar layout */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center gap-4">
+        
+        {/* Logo */}
+        <Link href="/" className="text-xl font-bold text-accent shrink-0" onClick={() => setMenuOpen(false)}>
           Byteside
         </Link>
 
         {/* Desktop menu */}
-        <div className="hidden sm:flex items-center gap-6">
-          <div className="flex items-center gap-5 text-sm font-medium">
+        <div className="hidden sm:flex items-center gap-6 lg:gap-8">
+          <div className="flex items-center gap-5 lg:gap-6 text-sm font-medium">
             <Link href="/" className="text-muted hover:text-foreground transition-colors">
               Home
             </Link>
@@ -94,14 +97,14 @@ export default function Navbar() {
 
           <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="text-lg leading-none hover:opacity-70 transition-opacity"
+            className="text-lg leading-none hover:opacity-70 transition-opacity shrink-0"
             aria-label="Toggle theme"
           >
             {theme === 'dark' ? '☀️' : '🌙'}
           </button>
 
           {profile ? (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 shrink-0">
               <span className="px-3 py-1.5 rounded-lg bg-accent/10 border border-accent/30 text-xs font-semibold text-accent">
                 {profile.username}
               </span>
@@ -113,7 +116,7 @@ export default function Navbar() {
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 shrink-0">
               <Link href="/login" className="text-muted hover:text-foreground transition-colors text-sm font-medium">
                 Login
               </Link>
@@ -129,7 +132,7 @@ export default function Navbar() {
 
         {/* Mobile hamburger button */}
         <button
-          className="sm:hidden text-foreground relative"
+          className="sm:hidden text-foreground relative shrink-0"
           onClick={() => setMenuOpen(!menuOpen)}
           aria-label="Toggle menu"
         >
