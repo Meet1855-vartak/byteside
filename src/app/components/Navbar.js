@@ -10,6 +10,7 @@ export default function Navbar() {
   const [mounted, setMounted] = useState(false)
   const [profile, setProfile] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [pendingCount, setPendingCount] = useState(0)
   const { theme, setTheme } = useTheme()
 
   useEffect(() => {
@@ -23,6 +24,16 @@ export default function Navbar() {
           .eq('id', user.id)
           .single()
         setProfile(data)
+
+        const { count } = await supabase
+          .from('connections')
+          .select('id', { count: 'exact', head: true })
+          .eq('recipient_id', user.id)
+          .eq('status', 'pending')
+        setPendingCount(count || 0)
+      } else {
+        setProfile(null)
+        setPendingCount(0)
       }
     }
     loadUser()
@@ -58,9 +69,16 @@ export default function Navbar() {
             <Link href="/p2p" className="text-muted hover:text-foreground transition-colors">
               P2P
             </Link>
-            <Link href="/connections" className="text-muted hover:text-foreground transition-colors">
-              Connections
-            </Link>
+            {profile && (
+              <Link href="/connections" className="text-muted hover:text-foreground transition-colors relative">
+                Connections
+                {pendingCount > 0 && (
+                  <span className="absolute -top-2 -right-3 bg-accent text-accent-foreground text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                    {pendingCount}
+                  </span>
+                )}
+              </Link>
+            )}
             <Link href="/contact" className="text-muted hover:text-foreground transition-colors">
               Contact
             </Link>
@@ -111,11 +129,16 @@ export default function Navbar() {
 
         {/* Mobile hamburger button */}
         <button
-          className="sm:hidden text-foreground"
+          className="sm:hidden text-foreground relative"
           onClick={() => setMenuOpen(!menuOpen)}
           aria-label="Toggle menu"
         >
           {menuOpen ? <X size={24} /> : <Menu size={24} />}
+          {pendingCount > 0 && !menuOpen && (
+            <span className="absolute -top-1 -right-1 bg-accent text-accent-foreground text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+              {pendingCount}
+            </span>
+          )}
         </button>
       </div>
 
@@ -128,6 +151,20 @@ export default function Navbar() {
           <Link href="/p2p" className="text-muted hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>
             P2P
           </Link>
+          {profile && (
+            <Link
+              href="/connections"
+              className="text-muted hover:text-foreground transition-colors flex items-center gap-2"
+              onClick={() => setMenuOpen(false)}
+            >
+              Connections
+              {pendingCount > 0 && (
+                <span className="bg-accent text-accent-foreground text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  {pendingCount}
+                </span>
+              )}
+            </Link>
+          )}
           <Link href="/contact" className="text-muted hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>
             Contact
           </Link>
