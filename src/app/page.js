@@ -9,6 +9,9 @@ export default function Home() {
   const [newPost, setNewPost] = useState('')
   const [posting, setPosting] = useState(false)
   const [user, setUser] = useState(null)
+  const [openComments, setOpenComments] = useState({})
+  const [commentDrafts, setCommentDrafts] = useState({})
+  const [commentPosting, setCommentPosting] = useState({})
 
   useEffect(() => {
     loadUser()
@@ -24,10 +27,18 @@ export default function Home() {
     setLoading(true)
     const { data, error } = await supabase
       .from('posts')
-      .select('id, content, created_at, profiles(username)')
+      .select('id, content, created_at, profiles(username), comments(id, content, created_at, profiles(username))')
       .order('created_at', { ascending: false })
 
-    if (!error) setPosts(data)
+    if (!error) {
+      const sorted = data.map((p) => ({
+        ...p,
+        comments: (p.comments || []).sort(
+          (a, b) => new Date(a.created_at) - new Date(b.created_at)
+        ),
+      }))
+      setPosts(sorted)
+    }
     setLoading(false)
   }
 
@@ -48,6 +59,29 @@ export default function Home() {
     setPosting(false)
   }
 
+  async function handleCommentSubmit(postId) {
+    const content = commentDrafts[postId]
+    if (!content?.trim() || commentPosting[postId]) return
+
+    setCommentPosting({ ...commentPosting, [postId]: true })
+
+    const { error } = await supabase.from('comments').insert({
+      post_id: postId,
+      author_id: user.id,
+      content: content,
+    })
+
+    if (!error) {
+      setCommentDrafts({ ...commentDrafts, [postId]: '' })
+      loadPosts()
+    }
+    setCommentPosting({ ...commentPosting, [postId]: false })
+  }
+
+  function toggleComments(postId) {
+    setOpenComments({ ...openComments, [postId]: !openComments[postId] })
+  }
+
   function formatDate(dateStr) {
     const date = new Date(dateStr)
     const seconds = Math.floor((new Date() - date) / 1000)
@@ -56,10 +90,10 @@ export default function Home() {
     if (seconds < 3600) return `${Math.floor(seconds / 60)}M AGO`
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}H AGO`
 
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase()
+    return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   }
 
- return (
+  return (
     <main className="bg-background text-foreground">
       <div className="max-w-2xl mx-auto px-6 py-12">
 
@@ -83,7 +117,7 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={posting || !newPost.trim()}
-                className="px-5 py-2 rounded-lg bg-accent text-accent-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-5 py-2 rounded-lg bg-accent text-accent-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40"
               >
                 {posting ? 'Posting...' : 'Publish'}
               </button>
@@ -111,6 +145,56 @@ export default function Home() {
                   <span className="text-muted text-xs">·</span>
                   <span className="text-xs font-medium text-muted tracking-wide">{formatDate(post.created_at)}</span>
                 </div>
+
+                <button
+                  onClick={() => toggleComments(post.id)}
+                  className="text-xs font-semibold text-accent mt-3 hover:opacity-70 transition-opacity"
+                >
+                  {post.comments.length === 0
+                    ? 'Comment'
+                    : `${post.comments.length} comment${post.comments.length > 1 ? 's' : ''}`}
+                  {openComments[post.id] ? ' ↑' : ' ↓'}
+                </button>
+
+                {openComments[post.id] && (
+                  <div className="mt-4 pt-4 border-t border-border space-y-3">
+                    {post.comments.map((c) => (
+                      <div key={c.id} className="bg-background border border-border rounded-lg p-3">
+                        <p className="text-sm leading-relaxed">{c.content}</p>
+                        <div className="flex items-center gap-2 mt-2 text-xs text-muted">
+                          <span className="font-semibold text-foreground">{c.profiles?.username}</span>
+                          <span>·</span>
+                          <span>{formatDate(c.created_at)}</span>
+                        </div>
+                      </div>
+                    ))}
+
+                    {user ? (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={commentDrafts[post.id] || ''}
+                          onChange={(e) =>
+                            setCommentDrafts({ ...commentDrafts, [post.id]: e.target.value })
+                          }
+                          placeholder="Write a comment..."
+                          className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
+                        />
+                        <button
+                          onClick={() => handleCommentSubmit(post.id)}
+                          disabled={commentPosting[post.id]}
+                          className="px-4 py-2 rounded-lg bg-accent text-accent-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40"
+                        >
+                          {commentPosting[post.id] ? '...' : 'Send'}
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted">
+                        <a href="/login" className="text-accent font-semibold">Log in</a> to comment.
+                      </p>
+                    )}
+                  </div>
+                )}
               </article>
             ))}
           </div>

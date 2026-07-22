@@ -11,6 +11,7 @@ export default function Admin() {
   const [users, setUsers] = useState([])
   const [posts, setPosts] = useState([])
   const [requests, setRequests] = useState([])
+  const [comments, setComments] = useState([])
   const router = useRouter()
 
   useEffect(() => {
@@ -36,7 +37,7 @@ export default function Admin() {
     }
 
     setAuthorized(true)
-    await Promise.all([loadUsers(), loadPosts(), loadRequests()])
+    await Promise.all([loadUsers(), loadPosts(), loadRequests(), loadComments()])
     setLoading(false)
   }
 
@@ -59,6 +60,14 @@ export default function Admin() {
       .select('id, description, status, created_at, profiles(username), p2p_responses(id, link, profiles(username))')
       .order('created_at', { ascending: false })
     setRequests(data || [])
+  }
+
+  async function loadComments() {
+    const { data } = await supabase
+      .from('comments')
+      .select('id, content, created_at, profiles(username), posts(content)')
+      .order('created_at', { ascending: false })
+    setComments(data || [])
   }
 
   async function toggleBan(userId, currentStatus) {
@@ -84,6 +93,12 @@ export default function Admin() {
     loadRequests()
   }
 
+  async function deleteComment(commentId) {
+    if (!confirm('Delete this comment?')) return
+    await supabase.from('comments').delete().eq('id', commentId)
+    loadComments()
+  }
+
   if (loading) return <main className="p-12 text-center text-muted">Loading...</main>
   if (!authorized) return null
 
@@ -92,15 +107,15 @@ export default function Admin() {
       <div className="max-w-2xl mx-auto px-6 py-12">
         <div className="mb-8">
           <h1 className="font-serif text-3xl mb-1">Admin Panel</h1>
-          <p className="text-sm text-muted">Manage users, posts, and P2P activity.</p>
+          <p className="text-sm text-muted">Manage users, posts, comments, and P2P activity.</p>
         </div>
 
-        <div className="flex gap-2 mb-8 border-b border-border">
-          {['users', 'posts', 'p2p'].map((t) => (
+        <div className="flex gap-2 mb-8 border-b border-border overflow-x-auto">
+          {['users', 'posts', 'comments', 'p2p'].map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-4 py-2 text-sm font-semibold capitalize border-b-2 transition-colors ${
+              className={`px-4 py-2 text-sm font-semibold capitalize border-b-2 transition-colors shrink-0 ${
                 tab === t ? 'border-accent text-accent' : 'border-transparent text-muted hover:text-foreground'
               }`}
             >
@@ -154,6 +169,33 @@ export default function Admin() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {tab === 'comments' && (
+          <div className="space-y-3">
+            {comments.length === 0 ? (
+              <p className="text-sm text-muted">No comments yet.</p>
+            ) : (
+              comments.map((c) => (
+                <div key={c.id} className="bg-surface border border-border rounded-xl p-4">
+                  <p className="text-sm mb-2">{c.content}</p>
+                  <p className="text-xs text-muted mb-2 italic">
+                    on: &ldquo;{c.posts?.content?.slice(0, 60)}
+                    {c.posts?.content?.length > 60 ? '...' : ''}&rdquo;
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted">{c.profiles?.username}</span>
+                    <button
+                      onClick={() => deleteComment(c.id)}
+                      className="text-xs font-semibold text-red-500 hover:opacity-70 transition-opacity"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         )}
 
