@@ -79,15 +79,21 @@ export default function Navbar() {
               P2P
             </Link>
             {profile && (
-              <Link href="/connections" className="text-muted hover:text-foreground transition-colors relative">
-                Connections
-                {pendingCount > 0 && (
-                  <span className="absolute -top-2 -right-3 bg-accent text-accent-foreground text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                    {pendingCount}
-                  </span>
-                )}
-              </Link>
-            )}
+              <>
+                <Link href="/connections" className="text-muted hover:text-foreground transition-colors relative">
+                  Connections
+                  {pendingCount > 0 && (
+                    <span className="absolute -top-2 -right-3 bg-accent text-accent-foreground text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                      {pendingCount}
+                    </span>
+                  )}
+                </Link>
+                
+                <Link href="/messages" className="text-muted hover:text-foreground transition-colors">
+                  Messages
+                </Link>
+              </>
+            )} 
             <Link href="/contact" className="text-muted hover:text-foreground transition-colors">
               Contact
             </Link>
@@ -160,19 +166,31 @@ export default function Navbar() {
           <Link href="/p2p" className="text-muted hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>
             P2P
           </Link>
+          // Inside src/components/Navbar.js (Mobile Menu section)
+
           {profile && (
-            <Link
-              href="/connections"
-              className="text-muted hover:text-foreground transition-colors flex items-center gap-2"
-              onClick={() => setMenuOpen(false)}
-            >
-              Connections
-              {pendingCount > 0 && (
-                <span className="bg-accent text-accent-foreground text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                  {pendingCount}
-                </span>
-              )}
-            </Link>
+            <>
+              <Link
+                href="/connections"
+                className="text-muted hover:text-foreground transition-colors flex items-center gap-2"
+                onClick={() => setMenuOpen(false)}
+              >
+                Connections
+                {pendingCount > 0 && (
+                  <span className="bg-accent text-accent-foreground text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                    {pendingCount}
+                  </span>
+                )}
+              </Link>
+
+              <Link 
+                href="/messages" 
+                className="text-muted hover:text-foreground transition-colors"
+                onClick={() => setMenuOpen(false)}
+              >
+                Messages
+              </Link>
+            </>
           )}
           <Link href="/contact" className="text-muted hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>
             Contact
