@@ -12,22 +12,24 @@ export default function Home() {
   const [openComments, setOpenComments] = useState({})
   const [commentDrafts, setCommentDrafts] = useState({})
   const [commentPosting, setCommentPosting] = useState({})
+  const [connectionMap, setConnectionMap] = useState({})
 
   useEffect(() => {
-    loadUser()
-    loadPosts()
+    init()
   }, [])
 
-  async function loadUser() {
+  async function init() {
     const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
+    await loadPosts()
+    if (user) await loadConnections(user.id)
   }
 
   async function loadPosts() {
     setLoading(true)
     const { data, error } = await supabase
       .from('posts')
-      .select('id, content, created_at, profiles(username), comments(id, content, created_at, profiles(username))')
+      .select('id, content, created_at, author_id, profiles(username), comments(id, content, created_at, profiles(username))')
       .order('created_at', { ascending: false })
 
     if (!error) {
@@ -40,6 +42,30 @@ export default function Home() {
       setPosts(sorted)
     }
     setLoading(false)
+  }
+
+  async function loadConnections(userId) {
+    const { data } = await supabase
+      .from('connections')
+      .select('id, requester_id, recipient_id, status')
+      .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`)
+
+    const map = {}
+    ;(data || []).forEach((c) => {
+      const otherId = c.requester_id === userId ? c.recipient_id : c.requester_id
+      const direction = c.requester_id === userId ? 'outgoing' : 'incoming'
+      map[otherId] = { status: c.status, direction }
+    })
+    setConnectionMap(map)
+  }
+
+  async function sendConnectRequest(recipientId) {
+    if (!user) return
+    const { error } = await supabase.from('connections').insert({
+      requester_id: user.id,
+      recipient_id: recipientId,
+    })
+    if (!error) loadConnections(user.id)
   }
 
   async function handleSubmit(e) {
@@ -93,6 +119,37 @@ export default function Home() {
     return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   }
 
+  function ConnectButton({ authorId }) {
+    if (!user || user.id === authorId) return null
+
+    const conn = connectionMap[authorId]
+
+    if (!conn) {
+      return (
+        <button
+          onClick={() => sendConnectRequest(authorId)}
+          className="text-xs font-semibold text-accent hover:opacity-70 transition-opacity"
+        >
+          + Connect
+        </button>
+      )
+    }
+    if (conn.status === 'pending' && conn.direction === 'outgoing') {
+      return <span className="text-xs text-muted">Request sent</span>
+    }
+    if (conn.status === 'pending' && conn.direction === 'incoming') {
+      return (
+        <a href="/connections" className="text-xs font-semibold text-accent hover:opacity-70 transition-opacity">
+          Respond to request
+        </a>
+      )
+    }
+    if (conn.status === 'accepted') {
+      return <span className="text-xs text-green-600 font-medium">✓ Connected</span>
+    }
+    return null
+  }
+
   return (
     <main className="bg-background text-foreground">
       <div className="max-w-2xl mx-auto px-6 py-12">
@@ -140,10 +197,13 @@ export default function Home() {
                 <p className="font-serif text-lg leading-relaxed whitespace-pre-wrap">
                   {post.content}
                 </p>
-                <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border">
-                  <span className="text-sm font-semibold">{post.profiles?.username}</span>
-                  <span className="text-muted text-xs">·</span>
-                  <span className="text-xs font-medium text-muted tracking-wide">{formatDate(post.created_at)}</span>
+                <div className="flex items-center justify-between gap-2 mt-4 pt-4 border-t border-border">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold">{post.profiles?.username}</span>
+                    <span className="text-muted text-xs">·</span>
+                    <span className="text-xs font-medium text-muted tracking-wide">{formatDate(post.created_at)}</span>
+                  </div>
+                  <ConnectButton authorId={post.author_id} />
                 </div>
 
                 <button

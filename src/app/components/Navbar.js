@@ -58,6 +58,9 @@ export default function Navbar() {
             <Link href="/p2p" className="text-muted hover:text-foreground transition-colors">
               P2P
             </Link>
+            <Link href="/connections" className="text-muted hover:text-foreground transition-colors">
+              Connections
+            </Link>
             <Link href="/contact" className="text-muted hover:text-foreground transition-colors">
               Contact
             </Link>
