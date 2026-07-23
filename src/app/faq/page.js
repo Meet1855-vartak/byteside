@@ -41,7 +41,11 @@ export default function FAQ() {
     },
     {
       q: "Is my data private from other users, not just from you?",
-      a: "Posts and P2P requests are visible to anyone with access to the site — that's the point, it's a shared space. Your email, however, is private and only ever visible to you and the admin, never to other regular users.",
+      a: "Posts, comments, and P2P requests are visible to anyone with access to the site — that's the point, it's a shared space. Your email, however, is private and only ever visible to you and the admin, never to other regular users.",
+    },
+    {
+      q: "Are DMs private, even from the admin?",
+      a: "Yes. Unlike posts and comments, direct messages are never visible to the admin. Only the two people in a conversation can read them — admin oversight only applies to things that are public and shared with everyone on the site.",
     },
   ]
 
