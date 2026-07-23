@@ -37,7 +37,7 @@ export default function MessagesPage() {
         .eq('status', 'accepted')
 
       if (conns) {
-        const friendProfiles = conns.map(c => 
+        const friendProfiles = conns.map(c =>
           c.requester_id === user.id ? c.recipient : c.requester
         )
         setConnections(friendProfiles)
@@ -48,7 +48,7 @@ export default function MessagesPage() {
     init()
   }, [])
 
-  // Load Message History & Set Up Realtime Listener
+  // Load Message History, Mark Unread as Read, Set Up Realtime Listener
   useEffect(() => {
     if (!currentUser || !activeChat) return
 
@@ -61,6 +61,14 @@ export default function MessagesPage() {
 
       setMessages(data || [])
       scrollToBottom()
+
+      // Mark any unread messages from this person as read now that we're viewing them
+      await supabase
+        .from('messages')
+        .update({ read: true })
+        .eq('sender_id', activeChat.id)
+        .eq('receiver_id', currentUser.id)
+        .eq('read', false)
     }
 
     fetchMessages()
@@ -82,6 +90,11 @@ export default function MessagesPage() {
           ) {
             setMessages((prev) => [...prev, msg])
             scrollToBottom()
+
+            // If it's from the person we're currently chatting with, mark it read immediately
+            if (msg.sender_id === activeChat.id) {
+              supabase.from('messages').update({ read: true }).eq('id', msg.id).then()
+            }
           }
         }
       )
@@ -128,7 +141,7 @@ export default function MessagesPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-surface border border-border rounded-2xl h-[650px] overflow-hidden shadow-sm">
-        
+
         {/* Friends Sidebar */}
         <div className="border-r border-border p-4 overflow-y-auto flex flex-col gap-2">
           <span className="text-xs font-semibold text-muted uppercase tracking-wider px-2 mb-2">

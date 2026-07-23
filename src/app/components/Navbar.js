@@ -11,6 +11,7 @@ export default function Navbar() {
   const [profile, setProfile] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
+  const [unreadCount, setUnreadCount] = useState(0)
   const { theme, setTheme } = useTheme()
 
   useEffect(() => {
@@ -25,15 +26,23 @@ export default function Navbar() {
           .single()
         setProfile(data)
 
-        const { count } = await supabase
+        const { count: connCount } = await supabase
           .from('connections')
           .select('id', { count: 'exact', head: true })
           .eq('recipient_id', user.id)
           .eq('status', 'pending')
-        setPendingCount(count || 0)
+        setPendingCount(connCount || 0)
+
+        const { count: msgCount } = await supabase
+          .from('messages')
+          .select('id', { count: 'exact', head: true })
+          .eq('receiver_id', user.id)
+          .eq('read', false)
+        setUnreadCount(msgCount || 0)
       } else {
         setProfile(null)
         setPendingCount(0)
+        setUnreadCount(0)
       }
     }
     loadUser()
@@ -53,14 +62,16 @@ export default function Navbar() {
 
   if (!mounted) return null
 
+  const totalBadge = pendingCount + unreadCount
+
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-border bg-surface/90 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center gap-4">
-        
+
         {/* Brand Logo & Name */}
-        <Link 
-          href="/" 
-          className="text-xl font-bold text-accent shrink-0 flex items-center gap-2.5 group" 
+        <Link
+          href="/"
+          className="text-xl font-bold text-accent shrink-0 flex items-center gap-2.5 group"
           onClick={() => setMenuOpen(false)}
         >
           <div className="p-1.5 rounded-xl bg-accent/10 border border-accent/20 group-hover:bg-accent/20 transition-colors">
@@ -88,12 +99,17 @@ export default function Navbar() {
                     </span>
                   )}
                 </Link>
-                
-                <Link href="/messages" className="text-muted hover:text-foreground transition-colors">
+
+                <Link href="/messages" className="text-muted hover:text-foreground transition-colors relative">
                   Messages
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-2 -right-3 bg-accent text-accent-foreground text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                      {unreadCount}
+                    </span>
+                  )}
                 </Link>
               </>
-            )} 
+            )}
             <Link href="/contact" className="text-muted hover:text-foreground transition-colors">
               Contact
             </Link>
@@ -149,9 +165,9 @@ export default function Navbar() {
           aria-label="Toggle menu"
         >
           {menuOpen ? <X size={24} /> : <Menu size={24} />}
-          {pendingCount > 0 && !menuOpen && (
+          {totalBadge > 0 && !menuOpen && (
             <span className="absolute -top-1 -right-1 bg-accent text-accent-foreground text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-              {pendingCount}
+              {totalBadge}
             </span>
           )}
         </button>
@@ -166,7 +182,6 @@ export default function Navbar() {
           <Link href="/p2p" className="text-muted hover:text-foreground transition-colors" onClick={() => setMenuOpen(false)}>
             P2P
           </Link>
-          // Inside src/components/Navbar.js (Mobile Menu section)
 
           {profile && (
             <>
@@ -183,12 +198,17 @@ export default function Navbar() {
                 )}
               </Link>
 
-              <Link 
-                href="/messages" 
-                className="text-muted hover:text-foreground transition-colors"
+              <Link
+                href="/messages"
+                className="text-muted hover:text-foreground transition-colors flex items-center gap-2"
                 onClick={() => setMenuOpen(false)}
               >
                 Messages
+                {unreadCount > 0 && (
+                  <span className="bg-accent text-accent-foreground text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                    {unreadCount}
+                  </span>
+                )}
               </Link>
             </>
           )}
