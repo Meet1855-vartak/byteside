@@ -16,6 +16,17 @@ export default function Navbar() {
 
   useEffect(() => {
     setMounted(true)
+    let messageChannel = null
+
+    async function refreshUnreadCount(userId) {
+      const { count } = await supabase
+        .from('messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('receiver_id', userId)
+        .eq('read', false)
+      setUnreadCount(count || 0)
+    }
+
     async function loadUser() {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
@@ -33,16 +44,27 @@ export default function Navbar() {
           .eq('status', 'pending')
         setPendingCount(connCount || 0)
 
-        const { count: msgCount } = await supabase
-          .from('messages')
-          .select('id', { count: 'exact', head: true })
-          .eq('receiver_id', user.id)
-          .eq('read', false)
-        setUnreadCount(msgCount || 0)
+        await refreshUnreadCount(user.id)
+
+        // Listen live for new messages or read-status changes involving this user,
+        // so the badge updates instantly instead of only on next page load
+        if (messageChannel) supabase.removeChannel(messageChannel)
+        messageChannel = supabase
+          .channel(`navbar-messages-${user.id}`)
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'messages', filter: `receiver_id=eq.${user.id}` },
+            () => refreshUnreadCount(user.id)
+          )
+          .subscribe()
       } else {
         setProfile(null)
         setPendingCount(0)
         setUnreadCount(0)
+        if (messageChannel) {
+          supabase.removeChannel(messageChannel)
+          messageChannel = null
+        }
       }
     }
     loadUser()
@@ -50,7 +72,10 @@ export default function Navbar() {
     const { data: listener } = supabase.auth.onAuthStateChange(() => {
       loadUser()
     })
-    return () => listener.subscription.unsubscribe()
+    return () => {
+      listener.subscription.unsubscribe()
+      if (messageChannel) supabase.removeChannel(messageChannel)
+    }
   }, [])
 
   async function handleLogout() {

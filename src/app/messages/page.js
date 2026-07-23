@@ -7,6 +7,7 @@ import { Send, User, MessageSquare } from 'lucide-react'
 export default function MessagesPage() {
   const [currentUser, setCurrentUser] = useState(null)
   const [connections, setConnections] = useState([])
+  const [summaries, setSummaries] = useState({})
   const [activeChat, setActiveChat] = useState(null)
   const [messages, setMessages] = useState([])
   const [newMessage, setNewMessage] = useState('')
@@ -17,7 +18,7 @@ export default function MessagesPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  // Load User & Connected Friends
+  // Load user, connections, and conversation summaries
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -36,19 +37,55 @@ export default function MessagesPage() {
         .or(`requester_id.eq.${user.id},recipient_id.eq.${user.id}`)
         .eq('status', 'accepted')
 
-      if (conns) {
-        const friendProfiles = conns.map(c =>
-          c.requester_id === user.id ? c.recipient : c.requester
-        )
-        setConnections(friendProfiles)
-        if (friendProfiles.length > 0) setActiveChat(friendProfiles[0])
-      }
+      const friendProfiles = (conns || []).map(c =>
+        c.requester_id === user.id ? c.recipient : c.requester
+      )
+      setConnections(friendProfiles)
+
+      await loadSummaries(user.id, friendProfiles)
       setLoading(false)
     }
     init()
   }, [])
 
-  // Load Message History, Mark Unread as Read, Set Up Realtime Listener
+  async function loadSummaries(userId, friendProfiles) {
+    const { data: allMsgs } = await supabase
+      .from('messages')
+      .select('*')
+      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+      .order('created_at', { ascending: false })
+
+    const map = {}
+    ;(allMsgs || []).forEach((m) => {
+      const otherId = m.sender_id === userId ? m.receiver_id : m.sender_id
+      if (!map[otherId]) {
+        map[otherId] = { lastMessage: m, unreadCount: 0 }
+      }
+      if (m.receiver_id === userId && !m.read) {
+        map[otherId].unreadCount += 1
+      }
+    })
+    setSummaries(map)
+
+    // Auto-select the most recent conversation, or the first connection if none yet
+    if (!activeChat && friendProfiles.length > 0) {
+      const sorted = sortFriends(friendProfiles, map)
+      setActiveChat(sorted[0])
+    }
+  }
+
+  function sortFriends(friendList, summaryMap) {
+    return [...friendList].sort((a, b) => {
+      const aTime = summaryMap[a.id]?.lastMessage?.created_at
+      const bTime = summaryMap[b.id]?.lastMessage?.created_at
+      if (aTime && bTime) return new Date(bTime) - new Date(aTime)
+      if (aTime) return -1
+      if (bTime) return 1
+      return 0
+    })
+  }
+
+  // Load message history for the active chat, mark as read, set up realtime
   useEffect(() => {
     if (!currentUser || !activeChat) return
 
@@ -62,40 +99,61 @@ export default function MessagesPage() {
       setMessages(data || [])
       scrollToBottom()
 
-      // Mark any unread messages from this person as read now that we're viewing them
       await supabase
         .from('messages')
         .update({ read: true })
         .eq('sender_id', activeChat.id)
         .eq('receiver_id', currentUser.id)
         .eq('read', false)
+
+      // Instantly clear the unread badge for this contact in our local summary
+      setSummaries((prev) => ({
+        ...prev,
+        [activeChat.id]: { ...(prev[activeChat.id] || {}), unreadCount: 0 },
+      }))
     }
 
     fetchMessages()
 
     const channel = supabase
-      .channel(`chat:${currentUser.id}-${activeChat.id}`)
+      .channel(`messages-for-${currentUser.id}`)
       .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages'
-        },
+        { event: 'INSERT', schema: 'public', table: 'messages' },
         (payload) => {
           const msg = payload.new
+          const involvesMe = msg.sender_id === currentUser.id || msg.receiver_id === currentUser.id
+          if (!involvesMe) return
+
+          const otherId = msg.sender_id === currentUser.id ? msg.receiver_id : msg.sender_id
+
+          // If it's the open chat, append it live and mark it read immediately
           if (
             (msg.sender_id === currentUser.id && msg.receiver_id === activeChat.id) ||
             (msg.sender_id === activeChat.id && msg.receiver_id === currentUser.id)
           ) {
             setMessages((prev) => [...prev, msg])
             scrollToBottom()
-
-            // If it's from the person we're currently chatting with, mark it read immediately
             if (msg.sender_id === activeChat.id) {
               supabase.from('messages').update({ read: true }).eq('id', msg.id).then()
             }
           }
+
+          // Update the summary (last message + unread count) for whoever this is with
+          setSummaries((prev) => {
+            const existing = prev[otherId] || { unreadCount: 0 }
+            const isOpenChat = otherId === activeChat.id
+            return {
+              ...prev,
+              [otherId]: {
+                lastMessage: msg,
+                unreadCount:
+                  msg.receiver_id === currentUser.id && !isOpenChat
+                    ? existing.unreadCount + 1
+                    : existing.unreadCount,
+              },
+            }
+          })
         }
       )
       .subscribe()
@@ -119,10 +177,18 @@ export default function MessagesPage() {
     const { error } = await supabase.from('messages').insert({
       sender_id: currentUser.id,
       receiver_id: activeChat.id,
-      content: messageText
+      content: messageText,
     })
 
     if (error) console.error('Failed to send message:', error)
+  }
+
+  function formatPreviewTime(dateStr) {
+    const date = new Date(dateStr)
+    const now = new Date()
+    const isToday = date.toDateString() === now.toDateString()
+    if (isToday) return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
   }
 
   if (loading) {
@@ -133,6 +199,8 @@ export default function MessagesPage() {
     )
   }
 
+  const sortedConnections = sortFriends(connections, summaries)
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <div className="flex items-center gap-2 mb-6">
@@ -142,30 +210,54 @@ export default function MessagesPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-surface border border-border rounded-2xl h-[650px] overflow-hidden shadow-sm">
 
-        {/* Friends Sidebar */}
-        <div className="border-r border-border p-4 overflow-y-auto flex flex-col gap-2">
+        {/* Conversation List */}
+        <div className="border-r border-border p-4 overflow-y-auto flex flex-col gap-1">
           <span className="text-xs font-semibold text-muted uppercase tracking-wider px-2 mb-2">
             Connections
           </span>
-          {connections.length === 0 ? (
+          {sortedConnections.length === 0 ? (
             <p className="text-xs text-muted p-2">No connected users yet.</p>
           ) : (
-            connections.map((friend) => (
-              <button
-                key={friend.id}
-                onClick={() => setActiveChat(friend)}
-                className={`flex items-center gap-3 p-3 rounded-xl text-left transition-colors ${
-                  activeChat?.id === friend.id
-                    ? 'bg-accent/15 text-accent font-semibold'
-                    : 'hover:bg-muted/10 text-foreground'
-                }`}
-              >
-                <div className="w-8 h-8 rounded-full bg-accent/20 text-accent flex items-center justify-center font-bold text-xs">
-                  {friend.username ? friend.username[0].toUpperCase() : <User size={14} />}
-                </div>
-                <span className="text-sm truncate">{friend.username}</span>
-              </button>
-            ))
+            sortedConnections.map((friend) => {
+              const summary = summaries[friend.id]
+              const preview = summary?.lastMessage
+                ? (summary.lastMessage.sender_id === currentUser.id ? 'You: ' : '') + summary.lastMessage.content
+                : 'No messages yet'
+
+              return (
+                <button
+                  key={friend.id}
+                  onClick={() => setActiveChat(friend)}
+                  className={`flex items-center gap-3 p-3 rounded-xl text-left transition-colors ${
+                    activeChat?.id === friend.id
+                      ? 'bg-accent/15 text-accent font-semibold'
+                      : 'hover:bg-muted/10 text-foreground'
+                  }`}
+                >
+                  <div className="w-9 h-9 shrink-0 rounded-full bg-accent/20 text-accent flex items-center justify-center font-bold text-xs">
+                    {friend.username ? friend.username[0].toUpperCase() : <User size={14} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm truncate">{friend.username}</span>
+                      {summary?.lastMessage && (
+                        <span className="text-[10px] text-muted shrink-0">
+                          {formatPreviewTime(summary.lastMessage.created_at)}
+                        </span>
+                      )}
+                    </div>
+                    <p className={`text-xs truncate ${summary?.unreadCount > 0 ? 'text-foreground font-medium' : 'text-muted'}`}>
+                      {preview}
+                    </p>
+                  </div>
+                  {summary?.unreadCount > 0 && (
+                    <span className="shrink-0 bg-accent text-accent-foreground text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                      {summary.unreadCount}
+                    </span>
+                  )}
+                </button>
+              )
+            })
           )}
         </div>
 
@@ -173,7 +265,6 @@ export default function MessagesPage() {
         <div className="md:col-span-2 flex flex-col h-full bg-background/50">
           {activeChat ? (
             <>
-              {/* Header */}
               <div className="p-4 border-b border-border bg-surface flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-accent/20 text-accent flex items-center justify-center font-bold text-xs">
@@ -184,7 +275,6 @@ export default function MessagesPage() {
                 <span className="text-[11px] text-muted">Messages expire after 7 days</span>
               </div>
 
-              {/* Chat Container */}
               <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-3">
                 {messages.length === 0 ? (
                   <p className="text-xs text-muted text-center my-auto">
@@ -212,7 +302,7 @@ export default function MessagesPage() {
                         <span className="text-[10px] text-muted mt-1 px-1">
                           {new Date(msg.created_at).toLocaleTimeString([], {
                             hour: '2-digit',
-                            minute: '2-digit'
+                            minute: '2-digit',
                           })}
                         </span>
                       </div>
@@ -222,7 +312,6 @@ export default function MessagesPage() {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Input Form */}
               <form onSubmit={handleSendMessage} className="p-4 bg-surface border-t border-border flex gap-2">
                 <input
                   type="text"
